@@ -63,7 +63,7 @@
 #include <ros/time.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
-
+//注意这个I
 typedef pcl::PointXYZI PointType;
 
 int kfNum = 0;
@@ -129,10 +129,13 @@ pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<PointT
 pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<PointType>());
 
 //optimization states
+//以起始位置为原点的世界坐标系下的转换矩阵（猜测与调整的对象）
 float transformTobeMapped[6] = {0};
 //optimization states after mapping
+//存放mapping之前的Odometry计算的世界坐标系的转换矩阵
 float transformAftMapped[6] = {0};
 //last optimization states
+//存放mapping之后的经过mapping微调之后的转换矩阵
 float transformLastMapped[6] = {0};
 
 double rad2deg(double radians)
@@ -184,7 +187,7 @@ void transformAssociateToMap()
     std::cout << "DEBUG transformTobeMapped : " << transformTobeMapped[0] << " " << transformTobeMapped[1] << " " << transformTobeMapped[2] << " "
               << transformTobeMapped[3] << " " << transformTobeMapped[4] << " " << transformTobeMapped[5] << std::endl;
 }
-
+//更新一帧 位姿变换矩阵T
 void transformUpdate()
 {
     for (int i = 0; i < 6; i++)
@@ -212,57 +215,60 @@ void pointAssociateToMap(PointType const *const pi, PointType *const po)
     po->z = -sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2 + transformTobeMapped[5];
     po->intensity = pi->intensity;
 }
-//lidar coordinate sys to world coordinate sys USE S
-void pointAssociateToMap_all(PointType const *const pi, PointType *const po)
-{
-    // Eigen::Matrix4f T_aft,T_last,delta_T;
+// //lidar coordinate sys to world coordinate sys USE S
+// //根据调整计算后的转移矩阵，将点注册到全局世界坐标系下
+// void pointAssociateToMap_all(PointType const *const pi, PointType *const po)
+// {
+//     // Eigen::Matrix4f T_aft,T_last,delta_T;
 
-    // Eigen::Matrix3f R_aft,R_last;
-    // Eigen::Quaternionf Q_aft,Q_last;
-    // Eigen::Vector3f t_aft,t_last;
+//     // Eigen::Matrix3f R_aft,R_last;
+//     // Eigen::Quaternionf Q_aft,Q_last;
+//     // Eigen::Vector3f t_aft,t_last;
 
-    // T_aft = trans_euler_to_matrix(transformAftMapped);
-    // T_last = trans_euler_to_matrix(transformLastMapped);
+//     // T_aft = trans_euler_to_matrix(transformAftMapped);
+//     // T_last = trans_euler_to_matrix(transformLastMapped);
 
-    // R_aft = T_aft.block<3,3>(0,0);
-    // R_last = T_last.block<3,3>(0,0);
+//     // R_aft = T_aft.block<3,3>(0,0);
+//     // R_last = T_last.block<3,3>(0,0);
 
-    // Q_aft = R_aft;
-    // Q_last = R_last;
+//     // Q_aft = R_aft;
+//     // Q_last = R_last;
 
-    double s;
-    s = pi->intensity - int(pi->intensity);
+//     double s;
+//     //ID
+//     s = pi->intensity - int(pi->intensity);
 
-    //std::cout<<"DEBUG pointAssociateToMap_all s: "<<pi->intensity<<std::endl;
+//     //std::cout<<"DEBUG pointAssociateToMap_all s: "<<pi->intensity<<std::endl;
 
-    // Eigen::Quaternionf Q_s = Q_last.slerp(s,Q_aft);
-    // Eigen::Matrix3f R_s = Q_s.matrix();
+//     // Eigen::Quaternionf Q_s = Q_last.slerp(s,Q_aft);
+//     // Eigen::Matrix3f R_s = Q_s.matrix();
 
-    // Eigen::Vector3f euler_s = R_s.eulerAngles(2,0,1);
+//     // Eigen::Vector3f euler_s = R_s.eulerAngles(2,0,1);
 
-    float rx = (1 - s) * transformLastMapped[0] + s * transformAftMapped[0];
-    float ry = (1 - s) * transformLastMapped[1] + s * transformAftMapped[1];
-    float rz = (1 - s) * transformLastMapped[2] + s * transformAftMapped[2];
-    float tx = (1 - s) * transformLastMapped[3] + s * transformAftMapped[3];
-    float ty = (1 - s) * transformLastMapped[4] + s * transformAftMapped[4];
-    float tz = (1 - s) * transformLastMapped[5] + s * transformAftMapped[5];
+//     float rx = (1 - s) * transformLastMapped[0] + s * transformAftMapped[0];
+//     float ry = (1 - s) * transformLastMapped[1] + s * transformAftMapped[1];
+//     float rz = (1 - s) * transformLastMapped[2] + s * transformAftMapped[2];
+//     float tx = (1 - s) * transformLastMapped[3] + s * transformAftMapped[3];
+//     float ty = (1 - s) * transformLastMapped[4] + s * transformAftMapped[4];
+//     float tz = (1 - s) * transformLastMapped[5] + s * transformAftMapped[5];
 
-    //rot z（transformTobeMapped[2]）
-    float x1 = cos(rz) * pi->x - sin(rz) * pi->y;
-    float y1 = sin(rz) * pi->x + cos(rz) * pi->y;
-    float z1 = pi->z;
+//     //rot z（transformTobeMapped[2]）
+//     float x1 = cos(rz) * pi->x - sin(rz) * pi->y;
+//     float y1 = sin(rz) * pi->x + cos(rz) * pi->y;
+//     float z1 = pi->z;
 
-    //rot x（transformTobeMapped[0]）
-    float x2 = x1;
-    float y2 = cos(rx) * y1 - sin(rx) * z1;
-    float z2 = sin(rx) * y1 + cos(rx) * z1;
+//     //rot x（transformTobeMapped[0]）
+//     float x2 = x1;
+//     float y2 = cos(rx) * y1 - sin(rx) * z1;
+//     float z2 = sin(rx) * y1 + cos(rx) * z1;
 
-    //rot y（transformTobeMapped[1]）then add trans
-    po->x = cos(ry) * x2 + sin(ry) * z2 + tx;
-    po->y = y2 + ty;
-    po->z = -sin(ry) * x2 + cos(ry) * z2 + tz;
-    po->intensity = pi->intensity;
-}
+//     //rot y（transformTobeMapped[1]）then add trans
+//     po->x = cos(ry) * x2 + sin(ry) * z2 + tx;
+//     po->y = y2 + ty;
+//     po->z = -sin(ry) * x2 + cos(ry) * z2 + tz;
+//     po->intensity = pi->intensity;
+// }
+//主要用带个RGB的  其中有反射率信息
 void RGBpointAssociateToMap(PointType const *const pi, pcl::PointXYZRGB *const po)
 {
     double s;
@@ -296,13 +302,17 @@ void RGBpointAssociateToMap(PointType const *const pi, pcl::PointXYZRGB *const p
     po->z = -sin(ry) * x2 + cos(ry) * z2 + tz;
     //po->intensity = pi->intensity;
 
+    //反射率
     float intensity = pi->intensity;
+    //floor函数返回一个原数的最大整数 那intensity不就是小数 这有什么意义？
+    //解答 因为之前那个point.intensity整数部分为ID
     intensity = intensity - std::floor(intensity);
 
     int reflection_map = intensity * 10000;
 
     //std::cout<<"DEBUG reflection_map "<<reflection_map<<std::endl;
 
+    //根据反射率进行颜色选择
     if (reflection_map < 30)
     {
         int green = (reflection_map * 255 / 30);
@@ -333,22 +343,22 @@ void RGBpointAssociateToMap(PointType const *const pi, pcl::PointXYZRGB *const p
     }
 }
 
-void pointAssociateTobeMapped(PointType const *const pi, PointType *const po)
-{
-    //add trans then rot y
-    float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
-    float y1 = pi->y - transformTobeMapped[4];
-    float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) + cos(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
-    //rot x
-    float x2 = x1;
-    float y2 = cos(transformTobeMapped[0]) * y1 + sin(transformTobeMapped[0]) * z1;
-    float z2 = -sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-    //rot z
-    po->x = cos(transformTobeMapped[2]) * x2 + sin(transformTobeMapped[2]) * y2;
-    po->y = -sin(transformTobeMapped[2]) * x2 + cos(transformTobeMapped[2]) * y2;
-    po->z = z2;
-    po->intensity = pi->intensity;
-}
+// void pointAssociateTobeMapped(PointType const *const pi, PointType *const po)
+// {
+//     //add trans then rot y
+//     float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
+//     float y1 = pi->y - transformTobeMapped[4];
+//     float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) + cos(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
+//     //rot x
+//     float x2 = x1;
+//     float y2 = cos(transformTobeMapped[0]) * y1 + sin(transformTobeMapped[0]) * z1;
+//     float z2 = -sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
+//     //rot z
+//     po->x = cos(transformTobeMapped[2]) * x2 + sin(transformTobeMapped[2]) * y2;
+//     po->y = -sin(transformTobeMapped[2]) * x2 + cos(transformTobeMapped[2]) * y2;
+//     po->z = z2;
+//     po->intensity = pi->intensity;
+// }
 
 void laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudCornerLast2)
 {
@@ -402,9 +412,10 @@ int main(int argc, char **argv)
     odomAftMapped.header.frame_id = "/camera_init";
     odomAftMapped.child_frame_id = "/aft_mapped";
 
+    //可以保存相关点云数据
     std::string map_file_path;
     ros::param::get("~map_file_path", map_file_path);
-    double filter_parameter_corner;
+    double filter_parameter_corner; //launch 里面可以为0.1 0.2  为下采样的size
     ros::param::get("~filter_parameter_corner", filter_parameter_corner);
     double filter_parameter_surf;
     ros::param::get("~filter_parameter_surf", filter_parameter_surf);
@@ -434,6 +445,7 @@ int main(int argc, char **argv)
     // pcl::VoxelGrid<PointType> downSizeFilterFull;
     // downSizeFilterFull.setLeafSize(0.15, 0.15, 0.15);
 
+    //数组重设
     for (int i = 0; i < laserCloudNum; i++)
     {
         laserCloudCornerArray[i].reset(new pcl::PointCloud<PointType>());
@@ -448,7 +460,7 @@ int main(int argc, char **argv)
     while (status)
     {
         ros::spinOnce();
-
+        //保持消息同步
         if (newLaserCloudCornerLast && newLaserCloudSurfLast && newLaserCloudFullRes &&
             fabs(timeLaserCloudSurfLast - timeLaserCloudCornerLast) < 0.005 &&
             fabs(timeLaserCloudFullRes - timeLaserCloudCornerLast) < 0.005)
@@ -469,13 +481,17 @@ int main(int argc, char **argv)
             pointOnYAxis.x = 0.0;
             pointOnYAxis.y = 10.0;
             pointOnYAxis.z = 0.0;
-
+            //获取y方向上10米高位置的点在世界坐标系下的坐标
             pointAssociateToMap(&pointOnYAxis, &pointOnYAxis);
 
+            //立方体中点在世界坐标系下的（原点）位置
+            //过半取一（以50米进行四舍五入的效果），由于数组下标只能为正数，而地图可能建立在原点前后，因此
+            //每一维偏移一个laserCloudCenWidth（该值会动态调整，以使得数组利用最大化，初始值为该维数组长度1/2）的量
             int centerCubeI = int((transformTobeMapped[3] + 25.0) / 50.0) + laserCloudCenWidth;
             int centerCubeJ = int((transformTobeMapped[4] + 25.0) / 50.0) + laserCloudCenHeight;
             int centerCubeK = int((transformTobeMapped[5] + 25.0) / 50.0) + laserCloudCenDepth;
 
+            //由于计算机求余是向零取整，为了不使（-50.0,50.0）求余后都向零偏移，当被求余数为负数时求余结果统一向左偏移一个单位，也即减一
             if (transformTobeMapped[3] + 25.0 < 0)
                 centerCubeI--;
             if (transformTobeMapped[4] + 25.0 < 0)
@@ -483,6 +499,8 @@ int main(int argc, char **argv)
             if (transformTobeMapped[5] + 25.0 < 0)
                 centerCubeK--;
 
+            //调整之后取值范围:3 < centerCubeI < 18， 3 < centerCubeJ < 8, 3 < centerCubeK < 18
+            //如果处于下边界，表明地图向负方向延伸的可能性比较大，则循环移位，将数组中心点向上边界调整一个单位
             while (centerCubeI < 3)
             {
                 for (int j = 0; j < laserCloudHeight; j++)
@@ -516,7 +534,7 @@ int main(int argc, char **argv)
                 centerCubeI++;
                 laserCloudCenWidth++;
             }
-
+            //如果处于上边界，表明地图向正方向延伸的可能性比较大，则循环移位，将数组中心点向下边界调整一个单位
             while (centerCubeI >= laserCloudWidth - 3)
             {
                 for (int j = 0; j < laserCloudHeight; j++)
@@ -676,6 +694,8 @@ int main(int argc, char **argv)
                 centerCubeK--;
                 laserCloudCenDepth--;
             }
+            //*************************************************************************************************
+            //以上六个while是调整因为取整导致空间偏移
 
             int laserCloudValidNum = 0;
             int laserCloudSurroundNum = 0;
@@ -764,6 +784,7 @@ int main(int argc, char **argv)
                       << laserCloudSurfFromMapNum << std::endl;
 
             t2 = clock();
+            //计算 T 并更新  大概？
             if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100)
             {
                 //if (laserCloudSurfFromMapNum > 100) {
@@ -1046,6 +1067,7 @@ int main(int argc, char **argv)
                         matX = matP * matX2;
                     }
 
+                    //最后的位姿！！！
                     transformTobeMapped[0] += matX.at<float>(0, 0);
                     transformTobeMapped[1] += matX.at<float>(1, 0);
                     transformTobeMapped[2] += matX.at<float>(2, 0);
@@ -1074,9 +1096,11 @@ int main(int argc, char **argv)
 
             t3 = clock();
 
-            for (int i = 0; i < laserCloudCornerLast->points.size(); i++)
+            // for (int i = 0; i < laserCloudCornerLast->points.size(); i++)
+            for (int i = 0; i < laserCloudCornerLast_down->points.size(); i++)
             {
-                pointAssociateToMap(&laserCloudCornerLast->points[i], &pointSel);
+                // pointAssociateToMap(&laserCloudCornerLast->points[i], &pointSel);
+                pointAssociateToMap(&laserCloudCornerLast_down->points[i], &pointSel);
 
                 int cubeI = int((pointSel.x + 25.0) / 50.0) + laserCloudCenWidth;
                 int cubeJ = int((pointSel.y + 25.0) / 50.0) + laserCloudCenHeight;
@@ -1122,7 +1146,7 @@ int main(int argc, char **argv)
                     laserCloudSurfArray[cubeInd]->push_back(pointSel);
                 }
             }
-
+            //特征点下采样
             for (int i = 0; i < laserCloudValidNum; i++)
             {
                 int ind = laserCloudValidInd[i];
@@ -1149,7 +1173,9 @@ int main(int argc, char **argv)
             for (int i = 0; i < laserCloudSurroundNum; i++)
             {
                 int ind = laserCloudSurroundInd[i];
+                //角点
                 *laserCloudSurround2_corner += *laserCloudCornerArray[ind];
+                //平面点
                 *laserCloudSurround2 += *laserCloudSurfArray[ind];
             }
 
@@ -1175,7 +1201,7 @@ int main(int argc, char **argv)
 
             laserCloudFullRes2->clear();
             *laserCloudFullRes2 = *laserCloudFullRes;
-
+            //一帧的点云全部转到世界坐标系下
             int laserCloudFullResNum = laserCloudFullRes2->points.size();
             for (int i = 0; i < laserCloudFullResNum; i++)
             {
@@ -1191,6 +1217,7 @@ int main(int argc, char **argv)
             laserCloudFullRes3.header.frame_id = "/camera_init";
             pubLaserCloudFullRes.publish(laserCloudFullRes3);
 
+            //保存用的指针
             *laserCloudFullResColor_pcd += *laserCloudFullResColor;
 
             geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(transformAftMapped[2], -transformAftMapped[0], -transformAftMapped[1]);
